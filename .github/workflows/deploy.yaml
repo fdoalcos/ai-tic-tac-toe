@@ -26,10 +26,24 @@ jobs:
           tags: fdoalcos/ai-ttt:latest
 
       - name: Deploy on EC2
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            /opt/ai-ttt/deploy.sh
+        shell: bash
+        run: |
+          set -e
+          mkdir -p ~/.ssh
+
+          # Write secret to file exactly
+          printf "%s" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
+
+          # Fix Windows line endings if any
+          sed -i 's/\r$//' ~/.ssh/ec2_key
+
+          # SSH requires strict perms
+          chmod 600 ~/.ssh/ec2_key
+
+          # Optional: show first line to confirm (safe)
+          head -n 1 ~/.ssh/ec2_key
+
+          ssh -o StrictHostKeyChecking=no \
+              -i ~/.ssh/ec2_key \
+              ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+              "/opt/ai-ttt/deploy.sh"
