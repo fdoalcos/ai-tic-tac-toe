@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Elite Tic-Tac-Toe AI Lab</title>
+<!-- Load Tailwind CSS v3 with plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration for custom colors -->
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              dark: '#0f172a',    /* Deep Slate */
+              accent: '#3b82f6',  /* Electric Blue */
+              soft: '#f8fafc',    /* Soft White */
+              border: '#334155'   /* Slate 700 */
+            }
+          }
+        }
+      }
+    }
+  </script>
+<style data-purpose="custom-animations">
+    /* Custom glow for X and O */
+    .symbol-x {
+      color: #3b82f6;
+      text-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+    }
+    .symbol-o {
+      color: #f43f5e;
+      text-shadow: 0 0 15px rgba(244, 63, 94, 0.5);
+    }
+    /* Smooth transition for grid cells */
+    .grid-cell {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .grid-cell:hover:empty {
+      background-color: rgba(59, 130, 246, 0.1);
+      transform: scale(0.98);
+    }
+    /* Custom scrollbar for logs */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body class="bg-brand-dark text-brand-soft min-h-screen font-sans selection:bg-brand-accent selection:text-white">
+<!-- BEGIN: MainHeader -->
+<header class="border-b border-brand-border py-6 px-8 flex justify-between items-center bg-brand-dark/50 backdrop-blur-md sticky top-0 z-50">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-brand-accent rounded-lg flex items-center justify-center shadow-lg shadow-brand-accent/20">
+<svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<h1 class="text-2xl font-bold tracking-tight">Tic Tac Toe <span class="text-brand-accent">AI</span></h1>
+</div>
+<div class="flex gap-8 text-sm font-medium">
+<div class="flex flex-col items-end">
+<span class="text-slate-400 uppercase text-[10px] tracking-widest">Player Score</span>
+<span class="text-xl" id="player-score">0</span>
+</div>
+<div class="flex flex-col items-end">
+<span class="text-slate-400 uppercase text-[10px] tracking-widest">AI Score</span>
+<span class="text-xl text-brand-accent" id="ai-score">0</span>
+</div>
+</div>
+</header>
+<!-- END: MainHeader -->
+<main class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 p-8">
+<!-- BEGIN: Sidebar Settings -->
+<aside class="lg:col-span-3 space-y-6" data-purpose="settings-panel">
+<div class="bg-slate-900/50 border border-brand-border rounded-2xl p-6 space-y-6">
+<div>
+<h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-4">Algorithm Selection</h2>
+<div class="space-y-3">
+<label class="flex items-center gap-3 p-3 rounded-xl border border-brand-border bg-slate-800/50 cursor-pointer hover:border-brand-accent transition-colors group ring-2 ring-brand-accent/50 bg-brand-accent/5">
+<input checked="" class="w-4 h-4 text-brand-accent bg-slate-700 border-slate-600 focus:ring-brand-accent" name="algorithm" type="radio" value="minimax"/>
+<span class="text-sm font-medium">Minimax</span>
+</label>
+<label class="flex items-center gap-3 p-3 rounded-xl border border-brand-border bg-slate-800/50 cursor-pointer hover:border-brand-accent transition-colors group">
+<input class="w-4 h-4 text-brand-accent bg-slate-700 border-slate-600 focus:ring-brand-accent" name="algorithm" type="radio" value="depth-minimax"/>
+<span class="text-sm font-medium">Depth-Limited Minimax</span>
+</label>
+<label class="flex items-center gap-3 p-3 rounded-xl border border-brand-border bg-slate-800/50 cursor-pointer hover:border-brand-accent transition-colors group">
+<input class="w-4 h-4 text-brand-accent bg-slate-700 border-slate-600 focus:ring-brand-accent" name="algorithm" type="radio" value="alpha-beta"/>
+<span class="text-sm font-medium">Alpha-Beta Pruning</span>
+</label>
+<label class="flex items-center gap-3 p-3 rounded-xl border border-brand-border bg-slate-800/50 cursor-pointer hover:border-brand-accent transition-colors group">
+<input class="w-4 h-4 text-brand-accent bg-slate-700 border-slate-600 focus:ring-brand-accent" name="algorithm" type="radio" value="mcts"/>
+<span class="text-sm font-medium">MCTS</span>
+</label>
+</div>
+</div>
+<div class="space-y-3" id="depth-setting"><label class="text-sm font-semibold text-slate-400 uppercase tracking-wider block mb-2" for="search-depth">Search Depth</label><div class="relative flex items-center group"><input class="w-full bg-slate-800 border-brand-border rounded-xl px-4 py-3 focus:ring-2 focus:ring-brand-accent focus:border-brand-accent text-sm transition-all" id="search-depth" max="9" min="1" type="number" value="4"/><span class="absolute right-4 text-xs text-slate-500 uppercase font-bold tracking-tighter">Levels</span></div></div>
+<button class="w-full py-3 px-4 bg-brand-accent hover:bg-blue-600 text-white rounded-xl font-bold transition-all transform active:scale-95 shadow-lg shadow-brand-accent/20 flex items-center justify-center gap-2" id="reset-btn">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+          Reset Game
+        </button>
+</div>
+</aside>
+<!-- END: Sidebar Settings -->
+<!-- BEGIN: Game Area -->
+<section class="lg:col-span-6 flex flex-col items-center justify-center space-y-8">
+<!-- Turn Indicator -->
+<div class="flex items-center gap-6 bg-slate-900/50 border border-brand-border px-8 py-3 rounded-full">
+<div class="flex items-center gap-2 opacity-100 transition-opacity duration-300" id="status-player">
+<span class="w-3 h-3 rounded-full bg-brand-accent animate-pulse"></span>
+<span class="text-sm font-bold tracking-widest uppercase">Your Turn</span>
+</div>
+<div class="h-4 w-px bg-brand-border"></div>
+<div class="flex items-center gap-2 opacity-30 transition-opacity duration-300" id="status-ai">
+<span class="w-3 h-3 rounded-full bg-rose-500"></span>
+<span class="text-sm font-bold tracking-widest uppercase italic">AI Thinking...</span>
+</div>
+</div>
+<!-- Grid -->
+<div class="relative group" data-purpose="game-grid-container">
+<!-- Background Glow -->
+<div class="absolute -inset-1 bg-gradient-to-r from-brand-accent to-blue-900 rounded-3xl blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
+<div class="relative grid grid-cols-3 gap-3 bg-brand-border p-3 rounded-2xl shadow-2xl" id="game-board">
+<!-- Cells 0-8 generated via logic -->
+<div class="grid-cell w-24 h-24 sm:w-32 sm:h-32 bg-brand-dark rounded-lg flex items-center justify-center text-5xl font-black cursor-pointer" data-index="0"></div>
+<div class="grid-cell w-24 h-24 sm:w-32 sm:h-32 bg-brand-dark rounded-lg flex items-center justify-center text-5xl font-black cursor-pointer" data-index="1"></div>
+<div class="grid-cell w-24 h-24 sm:w-32 sm:h-32 bg-brand-dark rounded-lg flex items-center justify-center text-5xl font-black cursor-pointer" data-index="2"></div>
+<div class="grid-cell w-24 h-24 sm:w-32 sm:h-32 bg-brand-dark rounded-lg flex items-center justify-center text-5xl font-black cursor-pointer" data-index="3"></div>
+<div class="grid-cell w-24 h-24 sm:w-32 sm:h-32 bg-brand-dark rounded-lg flex items-center justify-center text-5xl font-black cursor-pointer" data-index="4"></div>
+<div class="grid-cell w-24 h-24 sm:w-32 sm:h-32 bg-brand-dark rounded-lg flex items-center justify-center text-5xl font-black cursor-pointer" data-index="5"></div>
+<div class="grid-cell w-24 h-24 sm:w-32 sm:h-32 bg-brand-dark rounded-lg flex items-center justify-center text-5xl font-black cursor-pointer" data-index="6"></div>
+<div class="grid-cell w-24 h-24 sm:w-32 sm:h-32 bg-brand-dark rounded-lg flex items-center justify-center text-5xl font-black cursor-pointer" data-index="7"></div>
+<div class="grid-cell w-24 h-24 sm:w-32 sm:h-32 bg-brand-dark rounded-lg flex items-center justify-center text-5xl font-black cursor-pointer" data-index="8"></div>
+</div>
+</div>
+</section>
+<!-- END: Game Area -->
+<!-- BEGIN: Console/Logs -->
+<aside class="lg:col-span-3 h-[500px] lg:h-[500px] flex flex-col min-h-0">
+<div class="flex-1 bg-slate-900 border border-brand-border rounded-2xl flex flex-col overflow-hidden min-h-0">
+<div class="px-5 py-4 border-b border-brand-border flex items-center justify-between">
+<h2 class="text-sm font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            AI Log Terminal
+          </h2>
+<span class="text-[10px] bg-slate-800 px-2 py-1 rounded text-slate-500 font-mono">STABLE</span>
+</div>
+<div class="flex-1 min-h-0 p-5 overflow-y-auto overscroll-contain font-mono text-xs space-y-3 custom-scrollbar" id="log-container">
+<div class="text-emerald-400">&gt; System initialized.</div>
+<div class="text-emerald-400">&gt; Algorithm set: Minimax.</div>
+<div class="text-slate-500">&gt; Waiting for player move...</div>
+</div>
+<div class="p-4 bg-slate-950 border-t border-brand-border">
+<div class="flex justify-between text-[10px] text-slate-500">
+<span>MS: 0.042ms</span>
+<span>NODES: 0</span>
+</div>
+</div>
+</div>
+</aside>
+<!-- END: Console/Logs -->
+</main>
+
+<!-- BEGIN: End Game Modal -->
+<div id="end-modal" class="fixed inset-0 z-[100] hidden items-center justify-center p-4" aria-hidden="true">
+  <div id="end-modal-backdrop" class="absolute inset-0 bg-black/60 backdrop-blur-sm"></div>
+  <div class="relative w-full max-w-md rounded-2xl border border-brand-border bg-slate-900 shadow-2xl">
+    <div class="px-6 py-5 border-b border-brand-border flex items-start justify-between gap-4">
+      <div>
+        <h3 id="end-modal-title" class="text-lg font-black tracking-tight">Game Over</h3>
+        <p id="end-modal-subtitle" class="text-sm text-slate-400 mt-1">—</p>
+      </div>
+      <button id="end-modal-close" type="button" class="text-slate-400 hover:text-white transition-colors" aria-label="Close dialog">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+        </svg>
+      </button>
+    </div>
+    <div class="px-6 py-5">
+      <div class="flex gap-3">
+        <button
+          id="end-modal-restart"
+          type="button"
+          class="flex-1 py-3 px-4 bg-brand-accent hover:bg-blue-600 text-white rounded-xl font-bold transition-all transform active:scale-95 shadow-lg shadow-brand-accent/20"
+        >
+          Restart
+        </button>
+        <button
+          id="end-modal-dismiss"
+          type="button"
+          class="py-3 px-4 rounded-xl font-bold border border-brand-border bg-slate-800/50 hover:border-brand-accent transition-colors"
+        >
+          Keep board
+        </button>
+      </div>
+      <p class="text-[11px] text-slate-500 mt-3">Tip: you can also press <span class="font-mono">Esc</span> to close this dialog.</p>
+    </div>
+  </div>
+</div>
+<!-- END: End Game Modal -->
+
+<!-- BEGIN: Game Logic Script -->
+<script data-purpose="game-engine">
+  const cells = document.querySelectorAll('.grid-cell');
+  const logContainer = document.getElementById('log-container');
+  const statusPlayer = document.getElementById('status-player');
+  const statusAi = document.getElementById('status-ai');
+  const playerScoreEl = document.getElementById('player-score');
+  const aiScoreEl = document.getElementById('ai-score');
+
+  const depthSetting = document.getElementById('depth-setting');
+  const depthInput = document.getElementById('search-depth');
+
+  const endModal = document.getElementById('end-modal');
+  const endModalBackdrop = document.getElementById('end-modal-backdrop');
+  const endModalTitle = document.getElementById('end-modal-title');
+  const endModalSubtitle = document.getElementById('end-modal-subtitle');
+  const endModalClose = document.getElementById('end-modal-close');
+  const endModalRestart = document.getElementById('end-modal-restart');
+  const endModalDismiss = document.getElementById('end-modal-dismiss');
+
+  let locked = false; // prevent double clicks during AI turn
+
+  function setModalOpen(open) {
+    if (!endModal) return;
+    if (open) {
+      endModal.classList.remove('hidden');
+      endModal.classList.add('flex');
+      endModal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    } else {
+      endModal.classList.add('hidden');
+      endModal.classList.remove('flex');
+      endModal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    }
+  }
+
+  function showEndModal(winner) {
+    if (!endModalTitle || !endModalSubtitle) return;
+
+    if (winner === 'DRAW') {
+      endModalTitle.textContent = 'Draw';
+      endModalSubtitle.textContent = 'No more legal moves — well played.';
+    } else if (winner === 'X') {
+      endModalTitle.textContent = 'You win';
+      endModalSubtitle.textContent = 'Nice. You beat the AI.';
+    } else if (winner === 'O') {
+      endModalTitle.textContent = 'You lose';
+      endModalSubtitle.textContent = 'The AI found a winning line.';
+    } else {
+      endModalTitle.textContent = 'Game Over';
+      endModalSubtitle.textContent = `Winner: ${winner}`;
+    }
+
+    setModalOpen(true);
+    if (endModalRestart) endModalRestart.focus();
+  }
+
+  function selectedAlgorithm() {
+    const r = document.querySelector('input[name="algorithm"]:checked');
+    return r ? r.value : 'minimax';
+  }
+
+  function addLogLines(lines, type = "info") {
+    (lines || []).forEach(msg => {
+      const entry = document.createElement('div');
+      // match your colors: AI logs more "accent"
+      entry.className = (type === 'ai') ? 'text-brand-accent' : 'text-slate-400';
+      entry.textContent = msg.startsWith('>') ? msg : `> ${msg}`;
+      logContainer.appendChild(entry);
+    });
+    logContainer.scrollTop = logContainer.scrollHeight;
+  }
+
+  function clearLogs() {
+    logContainer.innerHTML = '';
+  }
+
+  function setThinking(isAiThinking) {
+    if (isAiThinking) {
+      statusPlayer.classList.replace('opacity-100', 'opacity-30');
+      statusAi.classList.replace('opacity-30', 'opacity-100');
+    } else {
+      statusPlayer.classList.replace('opacity-30', 'opacity-100');
+      statusAi.classList.replace('opacity-100', 'opacity-30');
+    }
+  }
+
+  function renderBoard(board) {
+    for (let i = 0; i < 9; i++) {
+      const cell = cells[i];
+      const v = board[i];
+      cell.textContent = (v === ' ') ? '' : v;
+
+      cell.classList.remove('symbol-x', 'symbol-o');
+      if (v === 'X') cell.classList.add('symbol-x');
+      if (v === 'O') cell.classList.add('symbol-o');
+    }
+  }
+
+  function renderScores(playerScore, aiScore) {
+    playerScoreEl.textContent = String(playerScore);
+    aiScoreEl.textContent = String(aiScore);
+  }
+
+  function setClickable(enabled) {
+    locked = !enabled;
+    cells.forEach(c => {
+      c.style.pointerEvents = enabled ? 'auto' : 'none';
+      c.style.opacity = enabled ? '1' : '0.95';
+    });
+  }
+
+  function updateDepthVisibility() {
+    const algo = selectedAlgorithm();
+    // show depth only for depth-limited minimax
+    if (algo === 'depth-minimax') {
+      depthSetting.style.display = 'block';
+    } else {
+      depthSetting.style.display = 'none';
+    }
+  }
+
+  async function api(path, body) {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body || {})
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.error || `Request failed: ${res.status}`);
+    }
+    return json;
+  }
+
+  function endIfWinner(winner) {
+    if (!winner) return false;
+    // winner is "X", "O", or "DRAW"
+    if (winner === "DRAW") addLogLines(["> Game Over: DRAW."], "info");
+    else addLogLines([`> Game Over: ${winner} wins.`], "info");
+    setClickable(false);
+    setThinking(false);
+    showEndModal(winner);
+    return true;
+  }
+
+  // Handle algorithm changes
+  document.querySelectorAll('input[name="algorithm"]').forEach(r => {
+    r.addEventListener('change', () => {
+      updateDepthVisibility();
+      addLogLines([`> Algorithm set: ${r.checked ? r.nextElementSibling.textContent.trim() : ''}`], "info");
+    });
+  });
+
+  // Player click
+  cells.forEach(cell => {
+    cell.addEventListener('click', async () => {
+      if (locked) return;
+      const idx = Number(cell.dataset.index);
+      if (Number.isNaN(idx)) return;
+
+      try {
+        setClickable(false);
+        setThinking(false);
+
+        // Human move
+        const human = await api("/api/human_move", { index: idx });
+        renderBoard(human.board);
+        renderScores(human.player_score, human.ai_score);
+        addLogLines(human.log, "info");
+
+        if (endIfWinner(human.winner)) return;
+
+        // AI move
+        setThinking(true);
+
+        const algo = selectedAlgorithm();
+        const depth = Math.max(1, Math.min(12, Number(depthInput.value || 4)));
+        const rollouts = 1500; // you can add UI input later if you want
+
+        const ai = await api("/api/ai_move", {
+          algorithm: algo,
+          depth,
+          rollouts
+        });
+
+        renderBoard(ai.board);
+        renderScores(ai.player_score, ai.ai_score);
+        addLogLines(ai.log, "ai");
+
+        if (endIfWinner(ai.winner)) return;
+
+        setThinking(false);
+        setClickable(true);
+      } catch (e) {
+        addLogLines([`> ERROR: ${e.message}`], "info");
+        setThinking(false);
+        setClickable(true);
+      }
+    });
+  });
+
+  // Reset button
+  document.getElementById('reset-btn').addEventListener('click', async () => {
+    try {
+      const data = await api("/api/reset", {});
+      renderBoard(data.board);
+      renderScores(data.player_score, data.ai_score);
+      clearLogs();
+      addLogLines(data.log, "info");
+      setClickable(true);
+      setThinking(false);
+      setModalOpen(false);
+    } catch (e) {
+      addLogLines([`> ERROR: ${e.message}`], "info");
+    }
+  });
+
+  async function restartFromModal() {
+    try {
+      const data = await api("/api/reset", {});
+      renderBoard(data.board);
+      renderScores(data.player_score, data.ai_score);
+      clearLogs();
+      addLogLines(data.log, "info");
+      setClickable(true);
+      setThinking(false);
+      setModalOpen(false);
+    } catch (e) {
+      addLogLines([`> ERROR: ${e.message}`], "info");
+    }
+  }
+
+  if (endModalBackdrop) endModalBackdrop.addEventListener('click', () => setModalOpen(false));
+  if (endModalClose) endModalClose.addEventListener('click', () => setModalOpen(false));
+  if (endModalDismiss) endModalDismiss.addEventListener('click', () => setModalOpen(false));
+  if (endModalRestart) endModalRestart.addEventListener('click', restartFromModal);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') setModalOpen(false);
+  });
+
+  // Initial UI setup
+  updateDepthVisibility();
+  setThinking(false);
+  setClickable(true);
+</script>
+<!-- END: Game Logic Script -->
+</body></html>
