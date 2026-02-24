@@ -26,14 +26,6 @@ jobs:
           tags: fdoalcos/ai-ttt:latest
 
       - name: Deploy on EC2
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd /opt/ai-ttt
-            docker-compose pull
         shell: bash
         env:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
@@ -59,9 +51,20 @@ jobs:
           ssh-keygen -y -f ~/.ssh/ec2_key > /dev/null
 
           ssh -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null \
               -o BatchMode=yes \
               -o IdentitiesOnly=yes \
               -o ConnectTimeout=15 \
               -i ~/.ssh/ec2_key \
               "$EC2_USER@$EC2_HOST" \
-              "/opt/ai-ttt/deploy.sh"
+              "/opt/ai-ttt/deploy.sh" || {
+                echo "SSH failed; retrying once with verbose logging (-vvv) for debugging..."
+                ssh -vvv -o StrictHostKeyChecking=no \
+                    -o UserKnownHostsFile=/dev/null \
+                    -o BatchMode=yes \
+                    -o IdentitiesOnly=yes \
+                    -o ConnectTimeout=15 \
+                    -i ~/.ssh/ec2_key \
+                    "$EC2_USER@$EC2_HOST" \
+                    "/opt/ai-ttt/deploy.sh"
+              }
