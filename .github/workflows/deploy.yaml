@@ -27,23 +27,39 @@ jobs:
 
       - name: Deploy on EC2
         shell: bash
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          set -e
+          set -euo pipefail
+
+          if [[ -z "${EC2_SSH_KEY:-}" ]]; then
+            echo "ERROR: EC2_SSH_KEY secret is empty/missing."
+            exit 1
+          fi
+          if [[ -z "${EC2_USER:-}" || -z "${EC2_HOST:-}" ]]; then
+            echo "ERROR: EC2_USER and/or EC2_HOST secrets are empty/missing."
+            exit 1
+          fi
+
           mkdir -p ~/.ssh
 
           # Write secret to file exactly
-          printf "%s" "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key
-
-          # Fix Windows line endings if any
-          sed -i 's/\r$//' ~/.ssh/ec2_key
+          # - add a trailing newline (some pasted keys omit it)
+          # - strip any CR characters (common when pasting on Windows)
+          printf '%s\n' "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/ec2_key
 
           # SSH requires strict perms
           chmod 600 ~/.ssh/ec2_key
 
-          # Optional: show first line to confirm (safe)
-          head -n 1 ~/.ssh/ec2_key
+          # Validate key format early (fails with "invalid format" if the secret is wrong)
+          ssh-keygen -y -f ~/.ssh/ec2_key > /dev/null
 
           ssh -o StrictHostKeyChecking=no \
+              -o BatchMode=yes \
+              -o IdentitiesOnly=yes \
+              -o ConnectTimeout=15 \
               -i ~/.ssh/ec2_key \
-              ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} \
+              "$EC2_USER@$EC2_HOST" \
               "/opt/ai-ttt/deploy.sh"
