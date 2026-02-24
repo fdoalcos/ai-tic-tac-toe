@@ -25,7 +25,7 @@ jobs:
           push: true
           tags: fdoalcos/ai-ttt:latest
 
-      - name: Deploy on EC2
+- name: Deploy on EC2
         shell: bash
         env:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
@@ -45,15 +45,9 @@ jobs:
 
           mkdir -p ~/.ssh
 
-          # Write secret to file exactly
-          # - add a trailing newline (some pasted keys omit it)
-          # - strip any CR characters (common when pasting on Windows)
           printf '%s\n' "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/ec2_key
-
-          # SSH requires strict perms
           chmod 600 ~/.ssh/ec2_key
 
-          # Validate key format early (fails with "invalid format" if the secret is wrong)
           ssh-keygen -y -f ~/.ssh/ec2_key > /dev/null
 
           ssh -o StrictHostKeyChecking=no \
